@@ -8,8 +8,8 @@ set -eou pipefail
 stage=0
 stop_stage=500
 extract_feat_nj=8
-early_train_nj=60
-train_nj=100
+early_train_nj=30
+train_nj=30
 phone_ngram_order=2
 word_ngram_order=3
 # When phone_tokens is false, we will use regular phones (e.g. /ae/) as our basic phonetic unit.

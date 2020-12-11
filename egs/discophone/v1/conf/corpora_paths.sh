@@ -1,4 +1,4 @@
-BABEL_ROOT="/export/corpora5/Babel"
+BABEL_ROOT="/ws/ifp-04_1/hasegawa/aliabavi/Babel"
 CANTONESE_ROOT="${BABEL_ROOT}/IARPA_BABEL_BP_101"
 BENGALI_ROOT="${BABEL_ROOT}/BABEL_OP1_103"
 VIETNAMESE_ROOT="${BABEL_ROOT}/BABEL_BP_107"
@@ -8,4 +8,4 @@ AMHARIC_ROOT="${BABEL_ROOT}/IARPA-babel307b-v1.0b-build/BABEL_OP3_307"
 JAVANESE_ROOT="${BABEL_ROOT}/IARPA-babel402b-v1.0b-build/BABEL_OP3_402"
 GEORGIAN_ROOT="${BABEL_ROOT}/IARPA-babel404b-v1.0a-build/BABEL_OP3_404"
 
-GLOBALPHONE_ROOT="/export/corpora5/GlobalPhone"
+GLOBALPHONE_ROOT="/ws/ifp-04_1/hasegawa/aliabavi/GlobalPhone"

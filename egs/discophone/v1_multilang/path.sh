@@ -1,3 +1,4 @@
+export PATH="$PATH:/ws/ifp-10_1/hasegawa/aliabavi" # add this to resole err 
 export KALDI_ROOT=`pwd`/../../..
 [ -f $KALDI_ROOT/tools/env.sh ] && . $KALDI_ROOT/tools/env.sh
 export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin:$PWD:$PATH
@@ -6,6 +7,7 @@ export PATH=$PWD/utils/:$KALDI_ROOT/tools/openfst/bin:$PWD:$PATH
 export LC_ALL=C
 
 export PATH="$PATH:$KALDI_ROOT/tools/sph2pipe_v2.5"
+#export PATH="$PATH:/ws/ifp-10_1/hasegawa/aliabavi$KALDI_ROOT/tools/sph2pipe_v2.5"
 
 SHORTEN_BIN_PATH="$PWD/shorten-3.6.1/src"
 export PATH="$SHORTEN_BIN_PATH:$PATH"

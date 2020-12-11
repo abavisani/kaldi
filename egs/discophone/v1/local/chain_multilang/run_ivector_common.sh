@@ -19,7 +19,7 @@ set -eu -o pipefail
 # Lao - 203
 babel_langs="307 103 101 402 107 206 404 203"
 babel_recog="${babel_langs}"
-data_aug_suffix= # set to null, whereas typically kaldi uses _sp
+data_aug_suffix=_sp # set to null, whereas typically kaldi uses _sp
 
 #GlobalPhone:
 #Czech       S0196
@@ -106,23 +106,39 @@ for f in data/${train_set}/feats.scp ${gmm_dir}/final.mdl; do
 done
 
 # Siyuan: don't do data augmentation at this stage
-#if [ $stage -le 1 ]; then
-#  # Although the nnet will be trained by high resolution data, we still have to
-#  # perturb the normal data to get the alignment _sp stands for speed-perturbed
-#  echo "$0: preparing directory for low-resolution speed-perturbed data (for alignment)"
-#  utils/data/perturb_data_dir_speed_3way.sh data/${train_set} data/${train_set}_sp
+if [ $stage -le 1 ]; then
+  # Although the nnet will be trained by high resolution data, we still have to
+  # perturb the normal data to get the alignment _sp stands for speed-perturbed
+  echo "$0: preparing directory for low-resolution speed-perturbed data (for alignment)"
+  utils/data/perturb_data_dir_speed_3way.sh data/${train_set} data/${train_set}_sp
 #  echo "$0: making PLP features for low-resolution speed-perturbed data"
 #  steps/make_plp_pitch.sh --cmd "$train_cmd" --nj $nj data/${train_set}_sp
-#  steps/compute_cmvn_stats.sh data/${train_set}_sp
-#  utils/fix_data_dir.sh data/${train_set}_sp
-#fi
-#
-#if [ $stage -le 2 ]; then
-#  echo "$0: aligning with the perturbed low-resolution data"
-#  steps/align_fmllr.sh --nj $nj --cmd "$train_cmd" \
-#    data/${train_set}_sp data/lang $gmm_dir $ali_dir || exit 1
-#fi
-#
+
+ # below, I use mfcc feat extracion for sp perturbation ~Ali
+  echo "$0: making MFCC features for low-resolution speed-perturbed data"
+  echo "test: train_set is: $train_set"
+  # Feature extraction
+  steps/make_mfcc.sh \
+   --cmd "$train_cmd" \
+   --nj $nj \
+   --write_utt2num_frames true \
+   "data/${train_set}_sp" \
+   "exp/make_mfcc/${train_set}_sp" \
+   mfcc
+  
+  utils/fix_data_dir.sh data/${train_set}_sp
+  steps/compute_cmvn_stats.sh data/${train_set}_sp
+
+  utils/fix_data_dir.sh data/${train_set}_sp
+fi
+
+if [ $stage -le 2 ]; then
+  echo "$0: aligning with the perturbed low-resolution data"
+  lang_name=universal
+  steps/align_fmllr.sh --nj $nj --cmd "$train_cmd" \
+    data/${train_set}_sp data/lang_${lang_name} $gmm_dir $ali_dir || exit 1
+fi
+
 if [ $stage -le 3 ] && [ $stop_stage -gt 3 ]; then
   echo "$0: creating high-resolution MFCC features"
   mfccdir=mfcc${data_aug_suffix}_hires
