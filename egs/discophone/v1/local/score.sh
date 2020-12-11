@@ -29,7 +29,15 @@ data=$1
 lang_or_graph=$2
 dir=$3
 
+words_to_phones=false
+if [[ $(basename $dir) == "decode_words_"* ]]; then
+  words_to_phones=true
+fi
+
 symtab=$lang_or_graph/words.txt
+if $words_to_phones; then
+  symtab=$lang_or_graph/phones.txt
+fi
 
 for f in $symtab $dir/lat.1.gz $data/text; do
   [ ! -f $f ] && echo "score.sh: no such file $f" && exit 1
@@ -40,11 +48,20 @@ mkdir -p $dir/scoring/log
 cat $data/text | sed 's:<noise>::g' >$dir/scoring/test_filt.txt
 
 for wip in $(echo $word_ins_penalty | sed 's/,/ /g'); do
-  $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/best_path.LMWT.$wip.log \
-    lattice-scale --inv-acoustic-scale=LMWT "ark:gunzip -c $dir/lat.*.gz|" ark:- \| \
-    lattice-add-penalty --word-ins-penalty=$wip ark:- ark:- \| \
-    lattice-best-path --word-symbol-table=$symtab \
-    ark:- ark,t:$dir/scoring/LMWT.$wip.tra || exit 1
+  if $words_to_phones; then
+    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/best_path.LMWT.$wip.log \
+      lattice-scale --inv-acoustic-scale=LMWT "ark:gunzip -c $dir/lat.*.gz|" ark:- \| \
+      lattice-add-penalty --word-ins-penalty=$wip ark:- ark:- \| \
+      lattice-to-phone-lattice $dir/../final.mdl ark:- ark:- \| \
+      lattice-best-path --word-symbol-table=$symtab \
+      ark:- ark,t:$dir/scoring/LMWT.$wip.tra || exit 1
+  else
+    $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/best_path.LMWT.$wip.log \
+      lattice-scale --inv-acoustic-scale=LMWT "ark:gunzip -c $dir/lat.*.gz|" ark:- \| \
+      lattice-add-penalty --word-ins-penalty=$wip ark:- ark:- \| \
+      lattice-best-path --word-symbol-table=$symtab \
+      ark:- ark,t:$dir/scoring/LMWT.$wip.tra || exit 1
+  fi
 done
 
 # Note: the double level of quoting for the sed command

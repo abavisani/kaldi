@@ -45,9 +45,9 @@ else
   gp_romanized=false
 fi
 
-. cmd.sh
-. utils/parse_options.sh
-. path.sh
+. ./cmd.sh
+. ./utils/parse_options.sh
+. ./path.sh
 
 local/install_shorten.sh
 

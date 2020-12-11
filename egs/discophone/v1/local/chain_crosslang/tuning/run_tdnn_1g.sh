@@ -6,40 +6,26 @@ set -e -o pipefail
 
 # Note: to run this with models trained on language-suffix-word-level supervisions,
 # use data/lang_universal_test instead
-langdir=data/lang_combined_test
+#langdir=data/lang_combined_test
+lang_to_recog=Czech
 
-# BABEL TRAIN:
-# Amharic - 307
-# Bengali - 103
-# Cantonese - 101
-# Javanese - 402
-# Vietnamese - 107
-# Zulu - 206
-# BABEL TEST:
-# Georgian - 404
-# Lao - 203
-babel_langs="307 103 101 402 107 206 404 203"
-babel_recog="${babel_langs}"
+
 data_aug_suffix= # set to null, whereas typically kaldi uses _sp
-
-#GlobalPhone:
-#Czech       S0196
-#French      S0197
-#Spanish     S0203
-#mandarin    S0193
-#Thai        S0321
-
-gp_langs="Czech French Mandarin Spanish Thai"
-gp_recog="${gp_langs}"
+lang_dir_suffix= # set to null or _1gram
 
 # First the options that are passed through to run_ivector_common.sh
 # (some of which are also used in this script directly).
-stage=0
-stop_stage=500
-num_epochs=8
+stage=14
+stop_stage=15
+align_fmllr_stage=3
+num_epochs=4
 get_egs_stage=0
 nj=30
+iter_to_decode=final
+nj_decode=1
+nt_decode=1
 nj_align_fmllr_lats=100
+ivector_extract_nj=1
 num_jobs_initial=4
 num_jobs_final=4
 #train_set=train
@@ -49,7 +35,6 @@ nnet3_affix= # cleanup affix for nnet3 and chain dirs, e.g. _cleaned
 dropout_schedule='0,0@0.20,0.3@0.50,0'
 minibatch_size=128
 remove_egs=false
-train_set=universal/train
 # The rest are configs specific to this script.  Most of the parameters
 # are just hardcoded at this level, in the commands below.
 train_stage=-10
@@ -69,7 +54,41 @@ echo "$0 $@" # Print the command line for logging
 . ./cmd.sh
 . ./path.sh
 . ./utils/parse_options.sh
+langs_config=conf/experiments/crossling_eval_${lang_to_recog}.conf
+if [ $langs_config ]; then
+  # shellcheck disable=SC1090
+  source $langs_config
+  echo "Done getting language config from $langs_config"
+else
+  # BABEL TRAIN:
+  # Amharic - 307
+  # Bengali - 103
+  # Cantonese - 101
+  # Javanese - 402
+  # Vietnamese - 107
+  # Zulu - 206
+  # BABEL TEST:
+  # Georgian - 404
+  # Lao - 203
 
+  #GlobalPhone:
+  #Czech       S0196
+  #French      S0197
+  #Spanish     S0203
+  #mandarin    S0193
+  #Thai        S0321
+  babel_langs="307 103 101 402 107 206 404 203"
+  babel_recog="${babel_langs}"
+  gp_langs="Czech French Mandarin Spanish Thai"
+  gp_recog="${gp_langs}"
+  gp_path="/export/corpora5/GlobalPhone"
+  mboshi_train=false
+  mboshi_recog=false
+  gp_romanized=false
+fi
+dir_suffix=_crosslang_recog_${lang_to_recog}
+langdir=data/lang_combined${dir_suffix}
+train_set=universal${dir_suffix}/train
 #train_set=""
 #train_set_hires=""
 dev_set=""
@@ -119,25 +138,21 @@ where "nvcc" is installed.
 EOF
 fi
 
-local/chain_multilang/run_ivector_common.sh --stage $stage --stop-stage $stop_stage \
+local/chain_crosslang/run_ivector_common.sh --stage $stage --stop-stage $stop_stage \
   --nj $nj \
-  --babel-langs $babel_langs \
-  --babel-recog $babel_recog \
-  --gp-langs $gp_langs \
-  --gp-recog $gp_recog \
+  --lang-to-recog $lang_to_recog \
   --gmm $gmm \
   --num-threads-ubm $num_threads_ubm \
-  --nnet3-affix "$nnet3_affix" \
-  --data-aug-suffix "$data_aug_suffix"
+  --nnet3-affix "$nnet3_affix"
 
 data_dir=$train_set
-lang_name=universal
+lang_name=universal${dir_suffix}
 
-gmm_dir=exp/gmm/$gmm
-ali_dir=exp/gmm/${gmm}_ali
-tree_dir=exp/chain${nnet3_affix}/tree${tree_affix}
-lat_dir=exp/chain${nnet3_affix}/${gmm}${data_aug_suffix}_lats
-dir=exp/chain${nnet3_affix}/tdnn${tdnn_affix}${data_aug_suffix}
+gmm_dir=exp/gmm${dir_suffix}/$gmm
+ali_dir=exp/gmm${dir_suffix}/${gmm}_ali
+tree_dir=exp/chain${nnet3_affix}/$lang_name/tree${tree_affix}
+lat_dir=exp/chain${nnet3_affix}/$lang_name/${gmm}${data_aug_suffix}_lats
+dir=exp/chain${nnet3_affix}/$lang_name/tdnn${tdnn_affix}${data_aug_suffix}
 train_data_dir=data/${data_dir}${data_aug_suffix}_hires
 lores_train_data_dir=data/${data_dir}
 train_ivector_dir=exp/nnet3${nnet3_affix}/$lang_name/ivectors${data_aug_suffix}_hires
@@ -176,7 +191,7 @@ fi
 if [ $stage -le 15 ] && [ $stop_stage -gt 15 ]; then
   # Get the alignments as lattices (gives the chain training more freedom).
   # use the same num-jobs as the alignments
-  steps/align_fmllr_lats.sh --nj $nj_align_fmllr_lats --cmd "$train_cmd" ${lores_train_data_dir} \
+  steps/align_fmllr_lats.sh --stage $align_fmllr_stage --nj $nj_align_fmllr_lats --cmd "$train_cmd" ${lores_train_data_dir} \
     $langdir $gmm_dir $lat_dir
   rm $lat_dir/fsts.*.gz # save space
 fi
@@ -245,7 +260,13 @@ EOF
 fi
 
 if [ $stage -le 18 ] && [ $stop_stage -gt 18 ]; then
+  #if [[ $(hostname -f) == *.clsp.jhu.edu ]] && [ ! -d $dir/egs/storage ]; then
+  #  utils/create_split_dir.pl \
+  #   /export/b0{5,6,7,8}/$USER/kaldi-data/egs/aishell-$(date +'%m_%d_%H_%M')/s5c/$dir/egs/storage $dir/egs/storage
+  #fi
   echo "exit stage is $train_exit_stage"
+  mkdir -p $dir/egs/ || exit 1;
+  touch $dir/egs/.nodelete
   steps/nnet3/chain/train.py --stage $train_stage --exit-stage $train_exit_stage \
     --cmd "$decode_cmd" \
     --feat.online-ivector-dir $train_ivector_dir \
@@ -275,9 +296,9 @@ if [ $stage -le 18 ] && [ $stop_stage -gt 18 ]; then
     --dir $dir || exit 1
 fi
 
-if [ $stage -le 19 ] && [ $stop_stage -gt 19 ]; then
+if [ $stage -le 19 ] && [ $stop_stage -gt 19 ]  ; then
   echo "$0: creating high-resolution MFCC features for the test data"
-  mfccdir=mfcc${data_aug_suffix}_hires
+  mfccdir=mfcc${data_aug_suffix}_hires${dir_suffix}
 
   # Feature extraction
   for data_dir in ${recog_set}; do
@@ -290,27 +311,41 @@ if [ $stage -le 19 ] && [ $stop_stage -gt 19 ]; then
       steps/compute_cmvn_stats.sh data/${data_dir}_hires
       utils/fix_data_dir.sh data/${data_dir}_hires
 
-      utils/fix_data_dir.sh data/$data_dir
-      steps/compute_cmvn_stats.sh data/$data_dir exp/make_mfcc/$lang_name mfcc/$lang_name
+      utils/data/limit_feature_dim.sh 0:39 \
+        data/${data_dir}_hires data/${data_dir}_hires_nopitch || exit 1;
+      steps/compute_cmvn_stats.sh \
+        data/${data_dir}_hires_nopitch exp/make_mfcc_hires/${data_dir}_nopitch $mfccdir || exit 1 
+
     ) &
     sleep 2
   done
   wait
 fi
 
-if [ $stage -le 20 ] && [ $stop_stage -gt 20 ]; then
-  echo "$0: extracting i-vectors for the test data"
+if [ $stage -le 20 ]  && [ $stop_stage -gt 20 ] ; then
+  echo "$0: creating ivectors for the test data"
   for data_dir in ${recog_set}; do
-    nspk=$(wc -l <data/${data_dir}_hires/spk2utt)
-    steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj "${nspk}" \
-      data/${data_dir}_hires exp/nnet3/universal/extractor \
-      exp/nnet3/universal/ivectors_${data_dir}_hires
+    #nspk=$(wc -l <data/${data_dir}_hires/spk2utt)
+    steps/online/nnet2/extract_ivectors_online.sh --cmd "$train_cmd" --nj $ivector_extract_nj \
+      data/${data_dir}_hires_nopitch exp/nnet3/universal${dir_suffix}/extractor \
+      exp/nnet3/universal${dir_suffix}/ivectors_${data_dir}_hires
   done
 fi
 
-LMTYPE=phn_bg_multi
+#LMTYPE=phn_bg_cross
 
-if [ $stage -le 21 ] && [ $stop_stage -gt 21 ]; then
+if [ "$lang_dir_suffix" = "_1gram" ]; then
+  LMTYPE=phn_ug_cross
+elif [ "$lang_dir_suffix" = "_3gram" ]; then
+  LMTYPE=phn_tg_cross
+elif [ "$lang_dir_suffix" = "_4gram" ]; then
+  LMTYPE=phn_fg_cross
+else
+  LMTYPE=phn_bg_cross
+fi
+
+
+if [ $stage -le 21 ] && [ $stop_stage -gt 21 ]  ; then
   # The reason we are using data/lang here, instead of $lang, is just to
   # emphasize that it's not actually important to give mkgraph.sh the
   # lang directory with the matched topology (since it gets the
@@ -319,13 +354,13 @@ if [ $stage -le 21 ] && [ $stop_stage -gt 21 ]; then
   # as long as phones.txt was compatible.
 
   utils/lang/check_phones_compatible.sh \
-    data/lang_chain/lang_${lang_name}/phones.txt $langdir/phones.txt
+    data/lang_chain/lang_${lang_name}/phones.txt ${langdir}_test${lang_dir_suffix}/phones.txt
   utils/mkgraph.sh \
-    --self-loop-scale 1.0 $langdir \
+    --self-loop-scale 1.0 ${langdir}_test${lang_dir_suffix} \
     $tree_dir $tree_dir/graph_${LMTYPE} || exit 1
 fi
 
-if [ $stage -le 22 ] && [ $stop_stage -gt 22 ]; then
+if [ $stage -le 22 ] && [ $stop_stage -gt 22 ]  ; then
   frames_per_chunk=$(echo $frames_per_eg | cut -d, -f1)
   rm $dir/.error 2>/dev/null || true
 
@@ -334,85 +369,25 @@ if [ $stage -le 22 ] && [ $stop_stage -gt 22 ]; then
       data_affix=$(echo $data | sed s/eval_//)
       nspk=$(wc -l <data/${data}_hires/spk2utt)
 
-      if $gpu_decode; then
-        nj_decode=1
-        nt_decode=16
-        cmd_decode="$cuda_cmd"
-      else
-        nj_decode=$nspk
-        nt_decode=1
-        cmd_decode="$decode_cmd"
-      fi
 
       # (pzelasko): Eventually we'll have more LM types here, for now it's just one
+      if [ "$iter_to_decode" = "final" ]; then
+         decoder_affix=""
+      else
+         decoder_affix="_iter${iter_to_decode}"
+      fi
       for lmtype in $LMTYPE; do
         steps/nnet3/decode.sh \
+          --iter $iter_to_decode \
           --use-gpu $gpu_decode \
+          --acwt 1.0 --post-decode-acwt 10.0 \
           --extra-left-context 0 --extra-right-context 0 \
           --extra-left-context-initial 0 \
           --extra-right-context-final 0 \
-          --num-threads $nt_decode \
-          --online-ivector-dir exp/nnet3/universal/ivectors_${data}_hires \
-          --acwt 1.0 --post-decode-acwt 10.0 \
           --frames-per-chunk $frames_per_chunk \
-          --nj $nj_decode --cmd "$cmd_decode" \
-          $tree_dir/graph_${lmtype} data/${data}_hires ${dir}/decode_${lmtype}_${data_affix} || exit 1
-      done
-    ) || touch $dir/.error &
-  done
-  wait
-  [ -f $dir/.error ] && echo "$0: there was a problem while decoding" && exit 1
-fi
-
-langdir=data/lang_universal_test
-
-if [ $stage -le 23 ] && [ $stop_stage -gt 23 ]; then
-  # The reason we are using data/lang here, instead of $lang, is just to
-  # emphasize that it's not actually important to give mkgraph.sh the
-  # lang directory with the matched topology (since it gets the
-  # topology file from the model).  So you could give it a different
-  # lang directory, one that contained a wordlist and LM of your choice,
-  # as long as phones.txt was compatible.
-
-  utils/lang/check_phones_compatible.sh \
-    data/lang_chain/lang_${lang_name}/phones.txt $langdir/phones.txt
-  utils/mkgraph.sh \
-    --self-loop-scale 1.0 $langdir \
-    $tree_dir $tree_dir/graph_words || exit 1
-fi
-
-if [ $stage -le 24 ] && [ $stop_stage -gt 24 ]; then
-  frames_per_chunk=$(echo $frames_per_eg | cut -d, -f1)
-  rm $dir/.error 2>/dev/null || true
-
-  for data in $recog_set; do
-    (
-      data_affix=$(echo $data | sed s/eval_//)
-      nspk=$(wc -l <data/${data}_hires/spk2utt)
-
-      if $gpu_decode; then
-        nj_decode=1
-        nt_decode=16
-        cmd_decode="$cuda_cmd"
-      else
-        nj_decode=$nspk
-        nt_decode=1
-        cmd_decode="$decode_cmd"
-      fi
-
-      # (pzelasko): Eventually we'll have more LM types here, for now it's just one
-      for lmtype in words; do
-        steps/nnet3/decode.sh \
-          --use-gpu $gpu_decode \
-          --extra-left-context 0 --extra-right-context 0 \
-          --extra-left-context-initial 0 \
-          --extra-right-context-final 0 \
-          --num-threads $nt_decode \
-          --online-ivector-dir exp/nnet3/universal/ivectors_${data}_hires \
-          --acwt 1.0 --post-decode-acwt 10.0 \
-          --frames-per-chunk $frames_per_chunk \
-          --nj $nj_decode --cmd "$cmd_decode" \
-          $tree_dir/graph_${lmtype} data/${data}_hires ${dir}/decode_${lmtype}_${data_affix} || exit 1
+          --nj $nj_decode  --num-threads $nt_decode \
+          --online-ivector-dir exp/nnet3/universal${dir_suffix}/ivectors_${data}_hires \
+          $tree_dir/graph_${lmtype} data/${data}_hires ${dir}/decode_${lmtype}_${data_affix}${decoder_affix} || exit 1
       done
     ) || touch $dir/.error &
   done

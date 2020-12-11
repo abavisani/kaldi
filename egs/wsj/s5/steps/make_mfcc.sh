@@ -114,7 +114,10 @@ if [ -f $data/segments ]; then
 
   utils/split_scp.pl $data/segments $split_segments || exit 1;
   rm $logdir/.error 2>/dev/null
-
+ 
+  echo "test: logdir is: $logdir"
+  echo "test: name is: $name"
+  echo "test: mfccdir is: $mfccdir"
   $cmd JOB=1:$nj $logdir/make_mfcc_${name}.JOB.log \
     extract-segments scp,p:$scp $logdir/segments.JOB ark:- \| \
     compute-mfcc-feats $vtln_opts $write_utt2dur_opt --verbose=2 \
