@@ -13,8 +13,8 @@ train_tri3_stage=-10
 train_tri4_stage=-10
 train_tri5_stage=-10
 extract_feat_nj=8
-early_train_nj=60
-train_nj=100
+early_train_nj=30
+train_nj=30
 phone_ngram_order=2
 word_ngram_order=3
 # When phone_tokens is false, we will use regular phones (e.g. /ae/) as our basic phonetic unit.
@@ -66,7 +66,7 @@ else
   babel_recog="${babel_langs}"
   gp_langs="Czech French Mandarin Spanish Thai"
   gp_recog="${gp_langs}"
-  gp_path="/export/corpora5/GlobalPhone"
+  gp_path="/ws/ifp-04_1/hasegawa/aliabavi/GlobalPhone"
   mboshi_train=false
   mboshi_recog=false
   gp_romanized=false
@@ -78,6 +78,7 @@ fi
 #Mandarin    S0193
 #Thai        S0321
 
+gp_path="/ws/ifp-04_1/hasegawa/aliabavi/GlobalPhone"
 
 local/install_shorten.sh
 echo "$0: langs_config:$langs_config"
@@ -470,4 +471,4 @@ if (($stage <= 13)) && (($stop_stage > 13)); then
 fi
 
 # Uncomment this if you intend to train Chain TDNNF AM in next steps
-#bash local/chain_crosslang/tuning/run_tdnn_1g.sh
+bash local/chain_crosslang/tuning/run_tdnn_v2.sh
