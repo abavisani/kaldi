@@ -60,7 +60,7 @@ else
   babel_recog="${babel_langs}"
   gp_langs="Czech French Mandarin Spanish Thai"
   gp_recog="${gp_langs}"
-  gp_path="/export/corpora5/GlobalPhone"
+  gp_path="/ws/ifp-04_1/hasegawa/aliabavi/GlobalPhone"
   mboshi_train=false
   mboshi_recog=false
   gp_romanized=false
@@ -116,10 +116,11 @@ function langname() {
   echo "$(basename "$1")"
 }
 gmm_dir=exp/gmm${dir_suffix}/${gmm}
-#ali_dir=exp/gmm/${gmm}_ali_${train_set}_sp
+ali_dir=exp/gmm${dir_suffix}/${gmm}_ali_${train_set}_sp
 
 # Since commented stage 2, check for $gmm_dir/final.mdl is not needed
-for f in data/${train_set}/feats.scp; do # ${gmm_dir}/final.mdl; do
+# Ali: I changed the next line to be equal to original script babel/s5d/local/chain/run_ivector_common.sh since I do have speed perturbation and stage 2 is no longer commented!
+for f in data/${train_set}/feats.scp ${gmm_dir}/final.mdl; do
   if [ ! -f $f ]; then
     echo "$0: expected file $f to exist"
     exit 1
@@ -155,8 +156,9 @@ fi
 
 if [ $stage -le 2 ]; then
   echo "$0: aligning with the perturbed low-resolution data"
+  lang_name=universal${dir_suffix}
   steps/align_fmllr.sh --nj $nj --cmd "$train_cmd" \
-    data/${train_set}_sp data/lang $gmm_dir $ali_dir || exit 1
+    data/${train_set}_sp data/lang_${lang_name} $gmm_dir $ali_dir || exit 1
 fi
 
 if [ $stage -le 3 ] && [ $stop_stage -gt 3  ]   ; then

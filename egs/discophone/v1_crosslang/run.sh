@@ -5,7 +5,7 @@
 
 set -eou pipefail
 
-stage=1 # stage 0 runs only once and for all crosslingual experiments
+stage=0 # stage 0 runs only once and for all crosslingual experiments
 stop_stage=500
 gen_ali=true
 train_tri1_stage=-10
