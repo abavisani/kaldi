@@ -8,7 +8,7 @@ set -eu -o pipefail
 # be called by more scripts).  It contains the common feature preparation and iVector-related parts
 # of the script.  See those scripts for examples of usage.
 
-lang_to_recog=Czech
+lang_to_recog=Mandarin
 data_aug_suffix=_sp # set to null, whereas typically kaldi uses _sp
 
 ivector_train_stage=-10

@@ -40,7 +40,7 @@ numGaussMLLT=75000
 numLeavesSAT=6000
 numGaussSAT=75000
 
-lang_to_recog=Czech # Czech, ..., Thai, 101, 103, ... 404
+lang_to_recog=Mandarin # Czech, ..., Thai, 101, 103, ... 404
 
 . cmd.sh
 . utils/parse_options.sh
@@ -371,7 +371,7 @@ echo "Here Starts the run_tdnn script!"
 # Note: to run this with models trained on language-suffix-word-level supervisions,
 # use data/lang_universal_test instead
 #langdir=data/lang_combined_test
-lang_to_recog=Czech
+lang_to_recog=Mandarin
 
 
 data_aug_suffix=_sp # set to null, whereas typically kaldi uses _sp
